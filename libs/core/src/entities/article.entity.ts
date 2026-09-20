@@ -8,6 +8,9 @@ export class ArticleEntity extends WithId(DateEntity) {
   @Column({ type: 'varchar', length: 255 })
   title: string;
 
+  @Column({ type: 'varchar', length: 255, unique: true })
+  slug: string;
+
   @Column({ type: 'varchar', length: 500, nullable: true })
   summary: string;
 

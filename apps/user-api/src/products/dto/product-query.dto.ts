@@ -1,4 +1,5 @@
 import { PageQueryDto } from '@app/core';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsUUID } from 'class-validator';
 
@@ -10,14 +11,20 @@ export enum ProductSortBy {
 }
 
 export class ProductQueryDto extends PageQueryDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
   category_id?: string;
 
+  @ApiPropertyOptional({
+    enum: ProductSortBy,
+    default: ProductSortBy.CREATED_AT,
+  })
   @IsOptional()
   @IsEnum(ProductSortBy)
   sort_by: ProductSortBy = ProductSortBy.CREATED_AT;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) => {
     if (value === 'true') return true;

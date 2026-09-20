@@ -7,6 +7,12 @@ export class CategoryEntity extends WithId(DateEntity) {
   @Column({ type: 'varchar', length: 100 })
   name: string;
 
+  @Column({ type: 'varchar', length: 100, unique: true })
+  slug: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
   @Column({ type: 'uuid', nullable: true })
   parent_id: string;
 

@@ -41,6 +41,13 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get(':slug')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  findBySlug(@Param('slug') slug: string) {
+    return this.productsService.findBySlug(slug);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateProductDto) {

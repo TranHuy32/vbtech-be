@@ -5,11 +5,14 @@ import { WithId } from './with-id.entity';
 
 @Entity('products')
 export class ProductEntity extends WithId(DateEntity) {
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   code: string;
 
   @Column({ type: 'varchar', length: 255 })
   name: string;
+
+  @Column({ type: 'varchar', length: 255, unique: true })
+  slug: string;
 
   @Column({ type: 'uuid' })
   category_id: string;
@@ -41,4 +44,7 @@ export class ProductEntity extends WithId(DateEntity) {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  short_description: string;
 }

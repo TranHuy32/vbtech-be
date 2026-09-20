@@ -8,7 +8,7 @@ import {
 import { ProductEntity } from '@app/core/entities/product.entity';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Not, QueryFailedError, Repository } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto, ProductSortBy } from './dto/product-query.dto';
 import {
@@ -17,7 +17,7 @@ import {
 } from './dto/product-response.dto';
 import { UpdateProductFeaturedDto } from './dto/update-product-featured.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { PageMetaDto } from '@app/core';
+import { PageMetaDto, slugify } from '@app/core';
 
 @Injectable()
 export class ProductsService {
@@ -40,6 +40,28 @@ export class ProductsService {
       throw new AppBadRequestException(ErrorCode.PRODUCT_CATEGORY_NOT_FOUND);
     }
     throw new AppBadRequestException(fallback);
+  }
+
+  private async createUniqueSlug(name: string, excludeId?: string) {
+    const base = slugify(name) || 'product';
+    let slug = base;
+    let suffix = 2;
+
+    while (
+      await this.productsRepository.exists({
+        where: excludeId ? { slug, id: Not(excludeId) } : { slug },
+      })
+    ) {
+      const ending = `-${suffix++}`;
+      slug = `${base.slice(0, 255 - ending.length)}${ending}`;
+    }
+
+    return slug;
+  }
+
+  private createCode(name: string) {
+    const nameCode = slugify(name).replace(/-/g, '').toUpperCase().slice(0, 42);
+    return `SP-${nameCode || 'SANPHAM'}`;
   }
 
   async findAll(query: ProductQueryDto): Promise<ProductsPaginatedDto> {
@@ -77,7 +99,7 @@ export class ProductsService {
 
       if (query.keyword) {
         qb.andWhere(
-          '(product.name ILIKE :keyword OR product.code ILIKE :keyword)',
+          '(product.name ILIKE :keyword OR product.code ILIKE :keyword OR product.slug ILIKE :keyword)',
           { keyword: `%${query.keyword}%` },
         );
       }
@@ -104,6 +126,7 @@ export class ProductsService {
       id: product.id,
       code: product.code,
       name: product.name,
+      slug: product.slug,
       category_id: product.category_id,
       price: product.price,
       stock: product.stock,
@@ -111,15 +134,26 @@ export class ProductsService {
       is_featured: product.is_featured,
       image_url: product.image_url,
       specifications: product.specifications,
+      short_description: product.short_description,
       description: product.description,
     };
   }
 
+  async findBySlug(slug: string): Promise<ProductResponseDto> {
+    const product = await this.productsRepository.findOneBy({ slug });
+    if (!product) throw new AppNotFoundException(ErrorCode.PRODUCT_NOT_FOUND);
+    return this.toResponseDto(product);
+  }
+
   async create(dto: CreateProductDto) {
     try {
+      const slug = await this.createUniqueSlug(dto.name);
+      const code = dto.code?.trim() || this.createCode(dto.name);
       return await this.productsRepository.save(
         this.productsRepository.create({
           ...dto,
+          code,
+          slug,
         }),
       );
     } catch (error) {
@@ -129,9 +163,13 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto) {
     try {
+      const slug = dto.name
+        ? await this.createUniqueSlug(dto.name, id)
+        : undefined;
       const product = await this.productsRepository.preload({
         id,
         ...dto,
+        ...(slug ? { slug } : {}),
       });
       if (!product) throw new AppNotFoundException(ErrorCode.PRODUCT_NOT_FOUND);
       return this.productsRepository.save(product);

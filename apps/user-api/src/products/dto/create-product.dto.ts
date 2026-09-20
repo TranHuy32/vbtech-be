@@ -11,9 +11,10 @@ import {
 } from 'class-validator';
 
 export class CreateProductDto {
+  @IsOptional()
   @IsString()
   @MaxLength(50)
-  code: string;
+  code?: string;
 
   @IsString()
   @MaxLength(255)
@@ -46,6 +47,11 @@ export class CreateProductDto {
 
   @IsOptional()
   specifications?: unknown;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  short_description?: string;
 
   @IsOptional()
   @IsString()

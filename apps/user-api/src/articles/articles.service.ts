@@ -1,14 +1,16 @@
 import {
   AppBadRequestException,
+  AppConflictException,
   AppException,
   AppNotFoundException,
   ErrorCode,
   PageMetaDto,
+  slugify,
 } from '@app/core';
 import { ArticleEntity } from '@app/core/entities/article.entity';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Not, QueryFailedError, Repository } from 'typeorm';
 import { ArticleQueryDto } from './dto/article-query.dto';
 import {
   ArticleResponseDto,
@@ -31,10 +33,30 @@ export class ArticlesService {
 
   private throwDbError(error: unknown, fallback: ErrorCode): never {
     if (error instanceof AppException) throw error;
+    if (this.pgCode(error) === '23505') {
+      throw new AppConflictException(ErrorCode.ARTICLE_ALREADY_EXISTS);
+    }
     if (this.pgCode(error) === '23503') {
       throw new AppBadRequestException(ErrorCode.ARTICLE_AUTHOR_NOT_FOUND);
     }
     throw new AppBadRequestException(fallback);
+  }
+
+  private async createUniqueSlug(title: string, excludeId?: string) {
+    const base = slugify(title) || 'article';
+    let slug = base;
+    let suffix = 2;
+
+    while (
+      await this.articlesRepository.exists({
+        where: excludeId ? { slug, id: Not(excludeId) } : { slug },
+      })
+    ) {
+      const ending = `-${suffix++}`;
+      slug = `${base.slice(0, 255 - ending.length)}${ending}`;
+    }
+
+    return slug;
   }
 
   async findAll(query: ArticleQueryDto): Promise<ArticlesPaginatedDto> {
@@ -47,7 +69,7 @@ export class ArticlesService {
 
       if (query.keyword) {
         qb.andWhere(
-          '(article.title ILIKE :keyword OR article.summary ILIKE :keyword)',
+          '(article.title ILIKE :keyword OR article.summary ILIKE :keyword OR article.slug ILIKE :keyword)',
           { keyword: `%${query.keyword}%` },
         );
       }
@@ -65,9 +87,11 @@ export class ArticlesService {
 
   async create(dto: CreateArticleDto, authorId: string) {
     try {
+      const slug = await this.createUniqueSlug(dto.title);
       return await this.articlesRepository.save(
         this.articlesRepository.create({
           ...dto,
+          slug,
           author_id: authorId,
           published_at: new Date(),
         }),
@@ -79,7 +103,14 @@ export class ArticlesService {
 
   async update(id: string, dto: UpdateArticleDto) {
     try {
-      const article = await this.articlesRepository.preload({ id, ...dto });
+      const slug = dto.title
+        ? await this.createUniqueSlug(dto.title, id)
+        : undefined;
+      const article = await this.articlesRepository.preload({
+        id,
+        ...dto,
+        ...(slug ? { slug } : {}),
+      });
       if (!article) throw new AppNotFoundException(ErrorCode.ARTICLE_NOT_FOUND);
       return this.articlesRepository.save(article);
     } catch (error) {
@@ -102,6 +133,7 @@ export class ArticlesService {
     return {
       id: article.id,
       title: article.title,
+      slug: article.slug,
       summary: article.summary,
       content: article.content,
       thumbnail_url: article.thumbnail_url,

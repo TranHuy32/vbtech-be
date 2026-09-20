@@ -3,6 +3,7 @@ import { Paginate } from '@app/core';
 export class ArticleResponseDto {
   id: string;
   title: string;
+  slug: string;
   summary: string;
   content: string;
   thumbnail_url: string;
