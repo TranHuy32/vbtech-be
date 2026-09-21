@@ -18,6 +18,7 @@ import {
 } from './dto/article-response.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
+import sanitizeHtml = require('sanitize-html');
 
 @Injectable()
 export class ArticlesService {
@@ -29,6 +30,61 @@ export class ArticlesService {
   private pgCode(error: unknown) {
     return (error as QueryFailedError & { driverError?: { code?: string } })
       .driverError?.code;
+  }
+
+  private sanitizeContent(content: string) {
+    return sanitizeHtml(content, {
+      allowedTags: [
+        'p',
+        'div',
+        'br',
+        'h1',
+        'h2',
+        'h3',
+        'strong',
+        'em',
+        'u',
+        'hr',
+        'img',
+        'blockquote',
+        'ul',
+        'ol',
+        'li',
+        'a',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'th',
+        'td',
+      ],
+      allowedAttributes: {
+        a: ['href', 'target', 'rel', 'title'],
+        img: ['src', 'alt', 'title', 'style'],
+        p: ['style'],
+        div: ['style'],
+        h1: ['style'],
+        h2: ['style'],
+        h3: ['style'],
+        th: ['style'],
+        td: ['style'],
+      },
+      allowedStyles: {
+        '*': { 'text-align': [/^(left|center|right|justify)$/] },
+        img: { width: [/^(25|50|75|100)%$/] },
+      },
+      allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+      transformTags: {
+        a: (tagName, attributes) => ({
+          tagName,
+          attribs: {
+            ...attributes,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+          },
+        }),
+      },
+    });
   }
 
   private throwDbError(error: unknown, fallback: ErrorCode): never {
@@ -85,6 +141,16 @@ export class ArticlesService {
     }
   }
 
+  async findBySlug(slug: string): Promise<ArticleResponseDto> {
+    try {
+      const article = await this.articlesRepository.findOneBy({ slug });
+      if (!article) throw new AppNotFoundException(ErrorCode.ARTICLE_NOT_FOUND);
+      return this.toResponseDto(article);
+    } catch (error) {
+      this.throwDbError(error, ErrorCode.ARTICLE_LIST_FAILED);
+    }
+  }
+
   async create(dto: CreateArticleDto, authorId: string) {
     try {
       const slug = await this.createUniqueSlug(dto.title);
@@ -135,7 +201,7 @@ export class ArticlesService {
       title: article.title,
       slug: article.slug,
       summary: article.summary,
-      content: article.content,
+      content: this.sanitizeContent(article.content),
       thumbnail_url: article.thumbnail_url,
       author_id: article.author_id,
       published_at: article.published_at,

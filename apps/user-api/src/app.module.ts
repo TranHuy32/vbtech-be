@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ArticlesModule } from './articles/articles.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { ProjectsModule } from './projects/projects.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TelegramModule } from './telegram/telegram.module';
     AuthModule,
     UploadsModule,
     ArticlesModule,
+    ProjectsModule,
     TelegramModule,
   ],
   controllers: [AppController],

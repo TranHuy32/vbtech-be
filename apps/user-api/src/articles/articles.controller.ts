@@ -41,6 +41,13 @@ export class ArticlesController {
     return this.articlesService.findAll(query);
   }
 
+  @Get(':slug')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  findBySlug(@Param('slug') slug: string) {
+    return this.articlesService.findBySlug(slug);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(@Req() req: any, @Body() dto: CreateArticleDto) {
