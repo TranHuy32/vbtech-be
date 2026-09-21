@@ -59,7 +59,6 @@ export class AuthService {
 
   async updatePassword(userId: string, dto: UpdatePasswordDto) {
     try {
-      console.log(userId);
 
       const user = await this.usersRepository
         .createQueryBuilder('user')
